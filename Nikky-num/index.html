@@ -1,130 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Simple Calculator</title>
+  <meta charset="UTF-8" />
+  <title>Number Guessing Game</title>
   <style>
-    body {
+    * { box-sizing: border-box; }
+    body, html {
       margin: 0;
-      padding: 0;
-      background-color: #d0e7f9; /* Soft blue background */
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      font-family: Arial, sans-serif;
     }
-
-    .calculator {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-      width: 260px;
+    #game {
+      background-color: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 420px;
+      position: relative;
     }
-
-    .display {
-      width: 100%;
-      height: 50px;
-      font-size: 24px;
-      text-align: right;
-      margin-bottom: 15px;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+    h2 { margin-bottom: 10px; }
+    input[type="number"] {
+      padding: 6px;
+      font-size: 16px;
+      width: 100px;
     }
-
-    .buttons {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-    }
-
-    .buttons button {
-      padding: 15px;
-      font-size: 18px;
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
       border: none;
-      border-radius: 6px;
-      background-color: #f0f0f0;
+      border-radius: 4px;
+      color: #fff;
+      background-color: #4CAF50;
       cursor: pointer;
-      transition: background-color 0.2s;
     }
-
-    .buttons button:hover {
-      background-color: #e0e0e0;
+    #play-again {
+      background-color: #2196F3;
+      display: none;
     }
-
-    .clear {
-      background-color: #23c511; /* Green for C */
-      color: white;
+    #message {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 18px;
     }
-
-    .clear:hover {
-      background-color: #1d29af;
+    #clues {
+      margin-top: 20px;
+      text-align: left;
     }
-
-    .equals {
-      background-color: #061018; /* Blue for = */
-      color: white;
-      grid-row: span 2;
+    #clues ul {
+      padding-left: 20px;
     }
-
-    .equals:hover {
-      background-color: #1976D2;
+    #congrats {
+      display: none;
+      color: #d84315;
+      font-weight: bold;
+      font-size: 20px;
+      margin-top: 20px;
+      animation: bounce 1.5s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+    .bloom {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background: rgba(255, 223, 186, 0.7);
+      animation: bloom 1s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes bloom {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="calculator">
-    <input type="text" id="display" class="display" disabled placeholder="0">
-    <div class="buttons">
-      <button class="clear" onclick="clearDisplay()">C</button>
-      <button onclick="appendToDisplay('/')">/</button>
-      <button onclick="appendToDisplay('*')">*</button>
-      <button onclick="appendToDisplay('-')">-</button>
 
-      <button onclick="appendToDisplay('7')">7</button>
-      <button onclick="appendToDisplay('8')">8</button>
-      <button onclick="appendToDisplay('9')">9</button>
-      <button onclick="appendToDisplay('+')">+</button>
+<div id="game">
+  <h2>🎯 Guess the Number</h2>
+  <p>Pick a number between <strong>1</strong> and <strong>200</strong>.</p>
+  <p>Attempts left: <span id="attempts">5</span></p>
+  <input type="number" id="guess" min="1" max="200" placeholder="Your guess" />
+  <br>
+  <button onclick="checkGuess()">Guess</button>
+  <button id="play-again" onclick="resetGame()">🔄 Play Again</button>
 
-      <button onclick="appendToDisplay('4')">4</button>
-      <button onclick="appendToDisplay('5')">5</button>
-      <button onclick="appendToDisplay('6')">6</button>
-      <button class="equals" onclick="calculate()">=</button>
+  <div id="message"></div>
+  <div id="congrats">Congratulations! You guessed the number correctly!</div>
 
-      <button onclick="appendToDisplay('1')">1</button>
-      <button onclick="appendToDisplay('2')">2</button>
-      <button onclick="appendToDisplay('3')">3</button>
-
-      <button onclick="appendToDisplay('0')" style="grid-column: span 2;">0</button>
-      <button onclick="appendToDisplay('.')">.</button>
-    </div>
+  <div id="clues">
+    <h4>🧩 Clues:</h4>
+    <ul id="clueList"></ul>
   </div>
+</div>
 
-  <script>
-    function appendToDisplay(value) {
-      const display = document.getElementById('display');
-      if (display.value === '0' || display.value === 'Error') {
-        display.value = value;
+<script>
+  let secretNumber, attemptsLeft, totalAttempts, clues = [], shownClues = 0;
+
+  const guessInput = document.getElementById('guess');
+  const messageDiv = document.getElementById('message');
+  const attemptsDisplay = document.getElementById('attempts');
+  const clueList = document.getElementById('clueList');
+  const playAgainBtn = document.getElementById('play-again');
+  const congratsMsg = document.getElementById('congrats');
+  const gameDiv = document.getElementById('game');
+
+  function startGame() {
+    secretNumber = Math.floor(Math.random() * 200) + 1;
+    attemptsLeft = 5;
+    totalAttempts = 0;
+    shownClues = 0;
+    clues = generateClues(secretNumber);
+    attemptsDisplay.textContent = attemptsLeft;
+    guessInput.disabled = false;
+    guessInput.value = '';
+    messageDiv.textContent = '';
+    playAgainBtn.style.display = 'none';
+    clueList.innerHTML = '';
+    congratsMsg.style.display = 'none';
+
+    const bloom = document.querySelector('.bloom');
+    if (bloom) bloom.remove();
+
+    // Show first clue immediately
+    if (clues.length > 0) {
+      const li = document.createElement('li');
+      li.textContent = clues[shownClues++];
+      clueList.appendChild(li);
+    }
+  }
+
+  function checkGuess() {
+    const guess = Number(guessInput.value);
+    if (!guess || guess < 1 || guess > 200) {
+      messageDiv.textContent = '⛔ Enter a number between 1 and 200.';
+      return;
+    }
+
+    attemptsLeft--;
+    totalAttempts++;
+    attemptsDisplay.textContent = attemptsLeft;
+    const diff = Math.abs(secretNumber - guess);
+
+    if (guess === secretNumber) {
+      messageDiv.textContent = `✅ Correct! The number was ${secretNumber}.`;
+      congratsMsg.style.display = 'block';
+      triggerBloomEffect();
+      endGame();
+    } else if (attemptsLeft === 0) {
+      messageDiv.textContent = `❌ Game Over! The number was ${secretNumber}.`;
+      endGame();
+    } else {
+      if (diff <= 5) {
+        messageDiv.textContent = guess < secretNumber ? '⬆️ Low!' : '⬇️ High!';
       } else {
-        display.value += value;
+        messageDiv.textContent = guess < secretNumber ? '📉 Too low!' : '📈 Too high!';
+      }
+
+      if (shownClues < clues.length) {
+        const li = document.createElement('li');
+        li.textContent = clues[shownClues++];
+        clueList.appendChild(li);
       }
     }
 
-    function clearDisplay() {
-      document.getElementById('display').value = '';
+    guessInput.value = '';
+    guessInput.focus();
+  }
+
+  function endGame() {
+    guessInput.disabled = true;
+    playAgainBtn.style.display = 'inline-block';
+  }
+
+  function resetGame() {
+    startGame();
+  }
+
+  function generateClues(num) {
+    const clues = [];
+
+    // 1. Range Riddle
+    const lower = Math.floor(num / 20) * 20;
+    clues.push(`You’ll find me somewhere between ${lower} and ${lower + 19}, hidden in plain sight.`);
+
+    // 2. Digit Sum Riddle
+    const digitSum = num.toString().split('').reduce((a, b) => a + Number(b), 0);
+    clues.push(`If you add my digits together, the result is ${digitSum}.`);
+
+    // 3. Divisibility Riddle
+    const divs = [3, 4, 5, 6, 7, 9];
+    const div = divs.find(d => num % d === 0);
+    if (div) {
+      clues.push(`Split me by ${div}, and I won’t complain — no remainder remains.`);
+    } else {
+      clues.push(`I don’t like to be divided — try 3 to 9, and you’ll always get leftovers.`);
     }
 
-    function calculate() {
-      try {
-        const result = eval(document.getElementById('display').value);
-        document.getElementById('display').value = result;
-      } catch {
-        document.getElementById('display').value = 'Error';
-      }
-    }
-  </script>
+    // 4. Square comparison
+    const squareHint = Math.round(Math.sqrt(num));
+    clues.push(`I am close to the square of ${squareHint}, but not quite.`);
+
+    // 5. Ends with Riddle
+    clues.push(`I end with the digit '${num % 10}', hiding my identity in the open.`);
+
+    return clues;
+  }
+
+  function triggerBloomEffect() {
+    const bloom = document.createElement('div');
+    bloom.className = 'bloom';
+    gameDiv.appendChild(bloom);
+  }
+
+  startGame();
+</script>
+
 </body>
 </html>
 
